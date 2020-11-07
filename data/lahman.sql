@@ -20,7 +20,7 @@ SELECT height, playerid, namegiven, namelast
 FROM people
 ORDER BY height;
 
-----How many games did he play in? (Carroll)
+----How many games did he play in? 
 SELECT DISTINCT teams.name, namelast, namefirst, height, appearances.g_all as games_played, appearances.yearid as year
 FROM people
 INNER JOIN appearances
@@ -31,7 +31,7 @@ WHERE height IS NOT null
 ORDER BY height, namelast
 LIMIT 1;
 
--- (Heather)
+-- 
 WITH shortest_player AS (SELECT *
 						FROM people
 						ORDER BY height
@@ -50,8 +50,6 @@ USING(teamid);
 --Sort this list in descending order by the total salary earned. 
 --Which Vanderbilt player earned the most money in the majors?
 --A: David Taylor
-
-
 
 SELECT *
 FROM people
@@ -150,8 +148,6 @@ SELECT AVG(avg_year), decade
 FROM avg_so_dec
 GROUP BY decade;
 
---Mary
-
 WITH decades as (	
 	SELECT 	generate_series(1920,2010,10) as low_b,
 			generate_series(1929,2019,10) as high_b)
@@ -213,7 +209,6 @@ FROM rank_wins
 WHERE  tm_rank = 1
 	AND wswin IS NOT NULL;
 	
---Chris
 SELECT teamid,
 	w,
 	yearid
@@ -238,7 +233,6 @@ WHERE yearid BETWEEN 1970 and 2016
 GROUP BY yearid
 ORDER BY yearid;
 
---Chris
 WITH ws_winners AS (SELECT yearid,
 						MAX(w)
 					FROM teams
@@ -296,7 +290,6 @@ WHERE total_attempts >= 20
 GROUP BY people.playerid
 ORDER BY success_rate DESC
 
---Cory
 
 SELECT Concat(namefirst,' ',namelast), batting.yearid, ROUND(MAX(sb::decimal/(cs::decimal+sb::decimal))*100,2) as sb_success_percentage
 FROM batting
@@ -328,7 +321,6 @@ AND games >=10
 ORDER BY avg_attendance
 LIMIT 5;
 
---Sreyas
 SELECT DISTINCT p.park_name, h.team,
 	(h.attendance/h.games) as avg_attendance, t.name		
 FROM homegames as h JOIN parks as p ON h.park = p.park
@@ -346,6 +338,7 @@ WHERE year = 2016
 AND games >= 10
 ORDER BY avg_attendance 
 LIMIT 5;
+
 --9.Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? 
 --Give their full name and the teams that they were managing when they won the award.
 
@@ -393,7 +386,7 @@ JOIN salaries ON people.playerid = salaries.playerid
 GROUP BY schoolname
 ORDER BY avg_salary DESC; 
 
---Mahesh 
+
 WITH mngr_list AS (SELECT playerid, awardid, COUNT(DISTINCT lgid) AS lg_count
 				   FROM awardsmanagers
 				   WHERE awardid = ‘TSN Manager of the Year’
@@ -407,5 +400,3 @@ FROM mngr_full INNER JOIN people USING(playerid)
 	INNER JOIN managers USING(playerid, yearid, lgid)
 	INNER JOIN teams ON mngr_full.yearid = teams.yearid AND mngr_full.lgid = teams.lgid AND managers.teamid = teams.teamid
 GROUP BY namegiven, namelast, name;
-
---
