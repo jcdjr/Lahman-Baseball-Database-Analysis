@@ -11,16 +11,39 @@ FROM teams
 SELECT *
 FROM people
 
+--method 1
+SELECT namelast, namegiven, height
+FROM people
+ORDER BY height
+LIMIT 1;
+
+--method 2
+SELECT namelast, namegiven, MIN(height)
+FROM people
+GROUP BY height, namelast, namegiven
+ORDER BY height
+LIMIT 1;
+
+--method 3
 SELECT namelast, namegiven, height
 FROM people 
 WHERE height IN (select MIN(height)
 				   FROM people);
 				   
-SELECT height, playerid, namegiven, namelast
-FROM people
-ORDER BY height;
-
 ----How many games did he play in? 
+SELECT *
+FROM people
+LIMIT 1;
+
+SELECT *
+FROM teams
+LIMIT 1;
+
+SELECT *
+FROM appearances
+LIMIT 1;
+
+--method 1
 SELECT DISTINCT teams.name, namelast, namefirst, height, appearances.g_all as games_played, appearances.yearid as year
 FROM people
 INNER JOIN appearances
@@ -31,7 +54,7 @@ WHERE height IS NOT null
 ORDER BY height, namelast
 LIMIT 1;
 
--- 
+--method 2 (CTE)
 WITH shortest_player AS (SELECT *
 						FROM people
 						ORDER BY height
@@ -56,7 +79,7 @@ FROM people
 LIMIT 1;
 
 SELECT *
-FROM schools
+FROM salaries
 LIMIT 1;
 
 SELECT *
@@ -64,9 +87,10 @@ FROM collegeplaying
 LIMIT 1;
 
 SELECT *
-FROM salaries
+FROM schools
 LIMIT 1;
 
+--method 1
 WITH top_sal AS (SELECT DISTINCT(sal.yearid), p.namegiven AS first, p.namelast AS last, s.schoolname AS college, sal.salary
 	FROM people AS p
 	INNER JOIN salaries AS sal
@@ -82,7 +106,7 @@ FROM top_sal
 GROUP BY first,last,college
 ORDER BY total_sal DESC;
 
-
+--method 2
 SELECT p.namegiven AS first, p.namelast AS last, s.schoolname AS college, sal.salary
 FROM people AS p
 	INNER JOIN salaries AS sal
@@ -125,7 +149,7 @@ WITH fielding_group AS (SELECT playerid, pos, po AS putouts,
 					   FROM fielding
 					   WHERE yearid = '2016'
 					   GROUP BY playerid,pos,po)
-SELECT field_position, COUNT(putouts) AS putouts
+SELECT field_position, SUM(putouts) AS putouts
 FROM fielding_group
 GROUP BY field_position
 ORDER BY putouts DESC;
@@ -133,21 +157,27 @@ ORDER BY putouts DESC;
 --5.Find the average number of strikeouts per game by decade since 1920. Round the numbers you report to 2 decimal places. 
 --Do the same for home runs per game. Do you see any trends?
 
-SELECT AVG(so), FLOOR(yearid/10)*10 AS decade
+SELECT *
+FROM batting
+LIMIT 2;
+
+SELECT FLOOR(yearid/10)*10 AS decade, ROUND(AVG(so),2)
 FROM batting
 WHERE yearid >= 1920
 GROUP BY yearid
 ORDER BY yearid;
 
-WITH avg_so_dec AS (SELECT AVG(so) AS avg_year,yearid, FLOOR(yearid/10)*10 AS decade
+--method 1
+WITH avg_so_dec AS (SELECT AVG(so) AS avg_so, yearid, AVG(hr) AS avg_hr, FLOOR(yearid/10)*10 AS decade
 					FROM batting
 					WHERE yearid >= 1920
 					GROUP BY yearid
 					ORDER BY yearid)
-SELECT AVG(avg_year), decade
+SELECT decade, ROUND(AVG(avg_so),2) AS so_per_game, ROUND(AVG(avg_hr),2) AS hr_per_game
 FROM avg_so_dec
 GROUP BY decade;
 
+--method 2
 WITH decades as (	
 	SELECT 	generate_series(1920,2010,10) as low_b,
 			generate_series(1929,2019,10) as high_b)
@@ -161,6 +191,42 @@ FROM decades LEFT JOIN teams
 	ON yearid BETWEEN low_b AND high_b
 GROUP BY decade
 ORDER BY decade
+
+					
+--6.Find the player who had the most success stealing bases in 2016, where success is measured as the percentage of stolen base attempts which are successful. 
+--(A stolen base attempt results either in a stolen base or being caught stealing.) 
+--Consider only players who attempted at least 20 stolen bases.
+WITH batting AS (SELECT playerid,
+				SUM(sb) AS stolen_bases,
+				SUM(cs) AS caught_stealing,
+				SUM(sb) + SUM(cs) AS total_attempts,
+				yearid AS year
+				FROM batting
+				GROUP BY playerid, yearid)
+SELECT DISTINCT(CONCAT(namelast, ',', ' ', namefirst)) AS player_name,
+	   SUM(total_attempts) AS total_attempts,
+	   SUM(stolen_bases) AS stolen_success,
+	   ROUND(SUM(stolen_bases::DECIMAL/total_attempts::DECIMAL)*100, 2) AS success_rate
+FROM batting
+JOIN people ON batting.playerid = people.playerid
+WHERE total_attempts >= 20
+	AND total_attempts IS NOT NULL
+	AND stolen_bases IS NOT NULL
+	AND year = '2016'
+GROUP BY people.playerid
+ORDER BY success_rate DESC
+
+SELECT *
+FROM batting
+LIMIT 5;
+
+SELECT Concat(namefirst,' ',namelast), batting.yearid, ROUND(MAX(sb::decimal/(cs::decimal+sb::decimal))*100,2) as sb_success_percentage
+FROM batting
+INNER JOIN people on batting.playerid = people.playerid
+WHERE yearid = '2016'
+AND (sb+cs) >= 20
+GROUP BY namefirst, namelast, batting.yearid
+ORDER BY sb_success_percentage DESC;
 
 -- 7. From 1970 – 2016, what is the largest number of wins for a team that did not win the world series? 
 --What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion – determine why this is the case. 
@@ -209,30 +275,6 @@ FROM rank_wins
 WHERE  tm_rank = 1
 	AND wswin IS NOT NULL;
 	
-SELECT teamid,
-	w,
-	yearid
-FROM teams
-WHERE yearid BETWEEN 1970 AND 2016
-AND wswin = 'N'
-GROUP BY teamid, yearid, w
-ORDER BY w DESC
-LIMIT 1;
-11:39
-SELECT yearid,
-	MAX(w)
-FROM teams
-WHERE yearid BETWEEN 1970 and 2016
-AND wswin = 'Y'
-GROUP BY yearid
-INTERSECT
-SELECT yearid,
-	MAX(w)
-FROM teams
-WHERE yearid BETWEEN 1970 and 2016
-GROUP BY yearid
-ORDER BY yearid;
-
 WITH ws_winners AS (SELECT yearid,
 						MAX(w)
 					FROM teams
@@ -259,45 +301,13 @@ AND t.yearid BETWEEN 1970 AND 2016;
 					 AND yearid <> 1981
 					GROUP BY yearid
 					ORDER BY yearid)
------- 
+--- 
 (SELECT yearid, teamid, w, wswin
 			FROM teams
 			WHERE yearid >= 1970
  			AND yearid <= 2016
 			AND yearid <> 1981
 			ORDER BY yearid, w desc)
-					
---6.Find the player who had the most success stealing bases in 2016, where success is measured as the percentage of stolen base attempts which are successful. 
---(A stolen base attempt results either in a stolen base or being caught stealing.) 
---Consider only players who attempted at least 20 stolen bases.
-WITH batting AS (SELECT playerid,
-				SUM(sb) AS stolen_bases,
-				SUM(cs) AS caught_stealing,
-				SUM(sb) + SUM(cs) AS total_attempts,
-				yearid AS year
-				FROM batting
-				GROUP BY playerid, yearid)
-SELECT DISTINCT(CONCAT(namelast, ',', ' ', namefirst)) AS player_name,
-	   SUM(total_attempts) AS total_attempts,
-	   SUM(stolen_bases) AS stolen_success,
-	   ROUND(SUM(stolen_bases::DECIMAL/total_attempts::DECIMAL)*100, 2) AS success_rate
-FROM batting
-JOIN people ON batting.playerid = people.playerid
-WHERE total_attempts >= 20
-	AND total_attempts IS NOT NULL
-	AND stolen_bases IS NOT NULL
-	AND year = '2016'
-GROUP BY people.playerid
-ORDER BY success_rate DESC
-
-
-SELECT Concat(namefirst,' ',namelast), batting.yearid, ROUND(MAX(sb::decimal/(cs::decimal+sb::decimal))*100,2) as sb_success_percentage
-FROM batting
-INNER JOIN people on batting.playerid = people.playerid
-WHERE yearid = '2016'
-AND (sb+cs) >= 20
-GROUP BY namefirst, namelast, batting.yearid
-ORDER BY sb_success_percentage DESC;
 
 -- 8.	Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). 
 --Only consider parks where there were at least 10 games played. 
